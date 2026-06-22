@@ -31,6 +31,8 @@ type Pipeline struct {
 	// Sequence of stages that produce the filesystem tree, which is the
 	// payload of the produced image.
 	Stages []*Stage `json:"stages,omitempty"`
+
+	defaultMounts []Mount
 }
 
 // SetBuild sets the pipeline and runner for generating the build environment
@@ -39,11 +41,18 @@ func (p *Pipeline) SetBuild(build string) {
 	p.Build = build
 }
 
+// SetDefaultMounts sets pipeline-level mounts that are automatically appended
+// to every stage added via AddStage or AddStages.
+func (p *Pipeline) SetDefaultMounts(mounts ...Mount) {
+	p.defaultMounts = append(p.defaultMounts, mounts...)
+}
+
 // AddStage appends a stage to the list of stages of a pipeline. The stages
 // will be executed in the order they are appended.
 // If the argument is nil, it is not added.
 func (p *Pipeline) AddStage(stage *Stage) {
 	if stage != nil {
+		stage.Mounts = append(stage.Mounts, p.defaultMounts...)
 		p.Stages = append(p.Stages, stage)
 	}
 }
