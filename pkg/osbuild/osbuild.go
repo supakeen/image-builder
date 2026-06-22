@@ -32,7 +32,8 @@ type Pipeline struct {
 	// payload of the produced image.
 	Stages []*Stage `json:"stages,omitempty"`
 
-	defaultMounts []Mount
+	defaultMounts  []Mount
+	defaultDevices map[string]Device
 }
 
 // SetBuild sets the pipeline and runner for generating the build environment
@@ -47,12 +48,28 @@ func (p *Pipeline) SetDefaultMounts(mounts ...Mount) {
 	p.defaultMounts = append(p.defaultMounts, mounts...)
 }
 
+// SetDefaultDevices sets pipeline-level devices that are automatically merged
+// into every stage added via AddStage or AddStages.
+func (p *Pipeline) SetDefaultDevices(devices map[string]Device) {
+	p.defaultDevices = devices
+}
+
 // AddStage appends a stage to the list of stages of a pipeline. The stages
 // will be executed in the order they are appended.
 // If the argument is nil, it is not added.
 func (p *Pipeline) AddStage(stage *Stage) {
 	if stage != nil {
 		stage.Mounts = append(stage.Mounts, p.defaultMounts...)
+		if len(p.defaultDevices) > 0 {
+			if stage.Devices == nil {
+				stage.Devices = make(map[string]Device, len(p.defaultDevices))
+			}
+			for k, v := range p.defaultDevices {
+				if _, exists := stage.Devices[k]; !exists {
+					stage.Devices[k] = v
+				}
+			}
+		}
 		p.Stages = append(p.Stages, stage)
 	}
 }

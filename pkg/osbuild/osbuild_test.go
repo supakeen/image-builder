@@ -93,6 +93,62 @@ func TestPipeline_NoMountsDoesNotAffectStages(t *testing.T) {
 	assert.Len(t, pipeline.Stages[0].Mounts, 0)
 }
 
+func TestPipeline_SetDefaultDevices(t *testing.T) {
+	pipeline := &Pipeline{}
+	pipeline.SetDefaultDevices(map[string]Device{
+		"root": {Type: "org.osbuild.loopback"},
+		"boot": {Type: "org.osbuild.loopback"},
+	})
+
+	pipeline.AddStage(&Stage{Type: "org.osbuild.rpm"})
+	pipeline.AddStage(&Stage{Type: "org.osbuild.locale"})
+
+	assert.Len(t, pipeline.Stages, 2)
+	for _, stage := range pipeline.Stages {
+		assert.Len(t, stage.Devices, 2)
+		assert.Equal(t, "org.osbuild.loopback", stage.Devices["root"].Type)
+		assert.Equal(t, "org.osbuild.loopback", stage.Devices["boot"].Type)
+	}
+}
+
+func TestPipeline_SetDefaultDevicesPreservesExisting(t *testing.T) {
+	pipeline := &Pipeline{}
+	pipeline.SetDefaultDevices(map[string]Device{
+		"root": {Type: "org.osbuild.loopback"},
+	})
+
+	stage := &Stage{
+		Type: "org.osbuild.rpm",
+		Devices: map[string]Device{
+			"root": {Type: "org.osbuild.luks2"},
+		},
+	}
+	pipeline.AddStage(stage)
+
+	assert.Len(t, pipeline.Stages[0].Devices, 1)
+	assert.Equal(t, "org.osbuild.luks2", pipeline.Stages[0].Devices["root"].Type)
+}
+
+func TestPipeline_NoDevicesDoesNotAffectStages(t *testing.T) {
+	pipeline := &Pipeline{}
+	pipeline.AddStage(&Stage{Type: "org.osbuild.rpm"})
+
+	assert.Nil(t, pipeline.Stages[0].Devices)
+}
+
+func TestPipeline_DefaultMountsAndDevicesTogether(t *testing.T) {
+	pipeline := &Pipeline{}
+	pipeline.SetDefaultMounts(*NewExt4Mount("root", "root-dev", "/"))
+	pipeline.SetDefaultDevices(map[string]Device{
+		"root-dev": {Type: "org.osbuild.loopback"},
+	})
+
+	pipeline.AddStage(&Stage{Type: "org.osbuild.rpm"})
+
+	assert.Len(t, pipeline.Stages[0].Mounts, 1)
+	assert.Len(t, pipeline.Stages[0].Devices, 1)
+}
+
 var fakeOsbuildManifestWithIdentifiers = []byte(`{
   "version": "2",
   "pipelines": [
