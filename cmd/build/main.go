@@ -191,7 +191,7 @@ func run() error {
 	manifestOpts := manifestgen.Options{
 		Cachedir:       filepath.Join(rpmCacheRoot, archName+distribution.Name()),
 		WarningsOutput: os.Stderr,
-		OverrideRepos:  allRepos,
+		ForceRepos:     allRepos,
 		CustomSeed:     &seedArg,
 	}
 	if archName != arch.Current().String() {
