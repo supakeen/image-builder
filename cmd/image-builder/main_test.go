@@ -176,14 +176,10 @@ func makeTestBlueprint(t *testing.T, testBlueprint string) string {
 
 // XXX: move to pytest like bib maybe?
 func TestManifestIntegrationSmoke(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	for _, useLibrepo := range []bool{false, true} {
@@ -380,14 +376,10 @@ esac
 }
 
 func TestBuildIntegrationHappy(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	var fakeStdout bytes.Buffer
@@ -438,14 +430,10 @@ func TestBuildIntegrationHappy(t *testing.T) {
 }
 
 func TestBuildIntegrationArgs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	cacheDir := t.TempDir()
@@ -526,14 +514,10 @@ exit 1
 `
 
 func TestBuildIntegrationErrorsProgressVerbose(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	outputDir := t.TempDir()
@@ -559,14 +543,10 @@ func TestBuildIntegrationErrorsProgressVerbose(t *testing.T) {
 }
 
 func TestBuildIntegrationErrorsProgressVerboseWithBuildlog(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	outputDir := t.TempDir()
@@ -607,14 +587,10 @@ error on stderr
 }
 
 func TestBuildIntegrationErrorsProgressTerm(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	for _, withBuildlog := range []bool{false, true} {
@@ -665,15 +641,12 @@ osbuild-stage-output
 }
 
 func TestManifestIntegrationWithSBOMWithOutputDir(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
+
 	outputDir := filepath.Join(t.TempDir(), "output-dir")
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	restore = main.MockOsArgs([]string{
@@ -786,6 +759,7 @@ func TestManifestExtraRepos(t *testing.T) {
 	if !hasDepsolveDnf() {
 		t.Skip("no osbuild-depsolve-dnf binary found")
 	}
+
 	if _, err := exec.LookPath("createrepo_c"); err != nil {
 		t.Skip("need createrepo_c to run this test")
 	}
@@ -874,14 +848,10 @@ func TestManifestOverrideRepo(t *testing.T) {
 }
 
 func TestBuildCrossArchSmoke(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	tmpdir := t.TempDir()
@@ -925,14 +895,10 @@ func TestBuildCrossArchSmoke(t *testing.T) {
 }
 
 func TestBuildIntegrationOutputFilename(t *testing.T) {
-	if testing.Short() {
-		t.Skip("manifest generation takes a while")
-	}
-	if !hasDepsolveDnf() {
-		t.Skip("no osbuild-depsolve-dnf binary found")
-	}
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
 
-	restore := main.MockNewRepoRegistry(testrepos.New)
+	restore = main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
 
 	var fakeStdout bytes.Buffer
