@@ -69,6 +69,14 @@ func SerializeWith(p Pipeline, inputs Inputs) (osbuild.Pipeline, error) {
 	return p.serialize()
 }
 
+func (p *SysextTree) GetPackageSetChain(d Distro) ([]rpmmd.PackageSet, error) {
+	return p.getPackageSetChain(d)
+}
+
+func (p *SysextPrep) WriteExtensionRelease(pipeline osbuild.Pipeline) (osbuild.Pipeline, error) {
+	return p.writeExtensionRelease(pipeline)
+}
+
 var MakeKickstartSudoersPost = makeKickstartSudoersPost
 
 func GetInline(p Pipeline) []string {
