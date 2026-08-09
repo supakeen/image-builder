@@ -810,6 +810,20 @@ func diskImage(t *imageType,
 
 	img.VPCForceSize = t.ImageTypeYAML.DiskImageVPCForceSize
 
+	d := t.Arch().Distro()
+	for _, sysext := range t.ImageTypeYAML.Sysexts(d.ID(), t.arch.arch.String()) {
+		img.Sysexts = append(img.Sysexts, image.SysextConfig{
+			Name:                      sysext.Name,
+			Format:                    sysext.Format,
+			ExtensionReleaseID:        strings.ToLower(d.Product()),
+			ExtensionReleaseVersionID: d.OsVersion(),
+			Paths:                     sysext.Paths,
+			ExcludePaths:              sysext.ExcludePaths,
+			PackageSet:                sysext.Packages,
+			OmitReference:             sysext.OmitReference,
+		})
+	}
+
 	if img.OSCustomizations.NoBLS {
 		img.OSProduct = t.Arch().Distro().Product()
 		img.OSVersion = t.Arch().Distro().OsVersion()
