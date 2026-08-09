@@ -12,12 +12,14 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"text/template"
 
 	"github.com/spf13/cobra"
 
 	"go.yaml.in/yaml/v3"
 
 	"github.com/osbuild/image-builder/pkg/arch"
+	"github.com/osbuild/image-builder/pkg/experimentalflags"
 	"github.com/osbuild/image-builder/pkg/bootc"
 	"github.com/osbuild/image-builder/pkg/cloud"
 	"github.com/osbuild/image-builder/pkg/customizations/subscription"
@@ -65,9 +67,49 @@ func defaultCacheDir() string {
 	return cacheDirForUid(os.Getuid())
 }
 
+type outputNameData struct {
+	distro.ID
+	Distro    string
+	Arch      string
+	ImageType string
+	Artifact  string
+}
+
+func outputNameDataFor(img *imagefilter.Result) outputNameData {
+	return outputNameData{
+		ID:        img.ImgType.Arch().Distro().ID(),
+		Distro:    img.ImgType.Arch().Distro().Name(),
+		Arch:      img.ImgType.Arch().Name(),
+		ImageType: img.ImgType.Name(),
+		Artifact:  strings.SplitN(img.ImgType.Filename(), ".", 2)[0],
+	}
+}
+
+func expandOutputName(nameTmpl string, data outputNameData) string {
+	if strings.Contains(nameTmpl, "{{") {
+		tmpl, err := template.New("output-name").Parse(nameTmpl)
+		if err == nil {
+			var buf bytes.Buffer
+			if err := tmpl.Execute(&buf, data); err == nil {
+				return buf.String()
+			}
+		}
+	}
+	return nameTmpl
+}
+
+const defaultOutputNameTmpl = "{{.Distro}}-{{.ImageType}}-{{.Arch}}"
+const defaultMultiExportNameTmpl = "{{.Distro}}-{{.ImageType}}-{{.Artifact}}-{{.Arch}}"
 // basenameFor returns the basename for directory and filenames
 // for the given imageType. This can be user overriden via userBasename.
 func basenameFor(img *imagefilter.Result, userBasename string) string {
+	nameTmpl := defaultOutputNameTmpl
+	if userBasename != "" {
+		nameTmpl = userBasename
+	}
+
+	result := expandOutputName(nameTmpl, outputNameDataFor(img))
+
 	if userBasename != "" {
 		// If the user provided a basename that already has the
 		// image extension just strip that off. I.e. when
@@ -79,13 +121,11 @@ func basenameFor(img *imagefilter.Result, userBasename string) string {
 		l := strings.SplitN(img.ImgType.Filename(), ".", 2)
 		if len(l) > 1 && l[1] != "" {
 			imgExt := fmt.Sprintf(".%s", l[1])
-			userBasename = strings.TrimSuffix(userBasename, imgExt)
+			result = strings.TrimSuffix(result, imgExt)
 		}
-		return userBasename
 	}
-	arch := img.ImgType.Arch()
-	distro := arch.Distro()
-	return fmt.Sprintf("%s-%s-%s", distro.Name(), img.ImgType.Name(), arch.Name())
+
+	return result
 }
 
 func cmdSystem(cmd *cobra.Command, args []string) error {
@@ -378,8 +418,8 @@ func getImage(cmd *cobra.Command, args []string) (*imagefilter.Result, error) {
 			return nil, err
 		}
 	}
-	if len(img.ImgType.Exports()) > 1 {
-		return nil, fmt.Errorf("image %q has multiple exports: this is current unsupport: please report this as a bug", basenameFor(img, ""))
+	if len(img.ImgType.Exports()) > 1 && len(experimentalflags.StringSlice("exports")) == 0 {
+		return nil, fmt.Errorf("image %q has multiple exports: this is currently unsupported: please report this as a bug", basenameFor(img, ""))
 	}
 	return img, err
 }
