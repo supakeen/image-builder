@@ -568,8 +568,27 @@ type ImageTypeYAML struct {
 		RequiredOptions  []string `yaml:"required_options"`
 	} `yaml:"blueprint"`
 
+	Extras extrasYAML `yaml:"extras,omitempty"`
+
 	// name is set by the loader
 	name string
+}
+
+type extrasYAML struct {
+	Sysexts []sysextDef `yaml:"sysexts,omitempty"`
+}
+
+type packageConfDef struct {
+	OmitReference bool `yaml:"omit_reference,omitempty"`
+}
+
+type sysextDef struct {
+	Name         string         `yaml:"name"`
+	Format       string         `yaml:"format"`
+	Paths        []string       `yaml:"paths,omitempty"`
+	ExcludePaths []string       `yaml:"exclude_paths,omitempty"`
+	PackageSets  []packageSet   `yaml:"package_sets"`
+	PackageConf  packageConfDef `yaml:"package_conf,omitempty"`
 }
 
 func (it *ImageTypeYAML) IsOSTreeBasedImageType() bool {
@@ -807,6 +826,57 @@ func (imgType *ImageTypeYAML) PackageSets(id distro.ID, archName string) map[str
 		res[key] = rpmmdPkgSet
 	}
 
+	return res
+}
+
+// SysextDef holds a resolved sysext definition with its name and packages.
+type SysextDef struct {
+	Name          string
+	Format        string
+	Paths         []string
+	ExcludePaths  []string
+	Packages      rpmmd.PackageSet
+	OmitReference bool
+}
+
+// Sysexts returns the resolved sysext definitions for this image type.
+func (imgType *ImageTypeYAML) Sysexts(id distro.ID, archName string) []SysextDef {
+	var res []SysextDef
+	for _, sysext := range imgType.Extras.Sysexts {
+		var pkgSet rpmmd.PackageSet
+		for _, ps := range sysext.PackageSets {
+			pkgSet = pkgSet.Append(rpmmd.PackageSet{
+				Include: ps.Include,
+				Exclude: ps.Exclude,
+			})
+			for _, cond := range ps.Conditions {
+				if cond.When.Eval(id, archName) {
+					pkgSet = pkgSet.Append(rpmmd.PackageSet{
+						Include: cond.Append.Include,
+						Exclude: cond.Append.Exclude,
+					})
+				}
+			}
+		}
+		slices.Sort(pkgSet.Include)
+		slices.Sort(pkgSet.Exclude)
+		format := sysext.Format
+		if format == "" {
+			format = "erofs"
+		}
+		paths := sysext.Paths
+		if len(paths) == 0 {
+			paths = []string{"/usr", "/opt"}
+		}
+		res = append(res, SysextDef{
+			Name:          sysext.Name,
+			Format:        format,
+			Paths:         paths,
+			ExcludePaths:  sysext.ExcludePaths,
+			Packages:      pkgSet,
+			OmitReference: sysext.PackageConf.OmitReference,
+		})
+	}
 	return res
 }
 
