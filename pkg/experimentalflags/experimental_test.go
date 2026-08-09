@@ -32,6 +32,25 @@ func TestExperimentalBool(t *testing.T) {
 
 }
 
+func TestExperimentalStringSlice(t *testing.T) {
+	for _, tc := range []struct {
+		envStr   string
+		expected []string
+	}{
+		{"", nil},
+		{"unrelated", nil},
+		{"exports=xz", []string{"xz"}},
+		{"exports=xz:sysext-nginx-erofs", []string{"xz", "sysext-nginx-erofs"}},
+		{"unrelated,exports=a:b:c", []string{"a", "b", "c"}},
+	} {
+		t.Run(tc.envStr, func(t *testing.T) {
+			t.Setenv("IMAGE_BUILDER_EXPERIMENTAL", tc.envStr)
+
+			assert.Equal(t, tc.expected, experimentalflags.StringSlice("exports"))
+		})
+	}
+}
+
 func TestExperimentalString(t *testing.T) {
 	for _, tc := range []struct {
 		envStr   string

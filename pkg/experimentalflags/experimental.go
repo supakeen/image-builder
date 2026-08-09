@@ -67,3 +67,19 @@ func String(option string) string {
 	expMap := experimentalOptions()
 	return expMap[option]
 }
+
+// StringSlice returns the value for the given option split on ":".
+// Returns nil if the option is not set.
+//
+// Example usage by the user:
+//
+//	IMAGE_BUILDER_EXPERIMENTAL=exports=xz:sysext-nginx-erofs
+//
+// would result in experimentalflags.StringSlice("exports") -> ["xz", "sysext-nginx-erofs"]
+func StringSlice(option string) []string {
+	v := String(option)
+	if v == "" {
+		return nil
+	}
+	return strings.Split(v, ":")
+}
