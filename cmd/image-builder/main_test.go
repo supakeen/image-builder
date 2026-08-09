@@ -1089,10 +1089,49 @@ func TestBasenameFor(t *testing.T) {
 		// with the "wrong" extension, we just ignore that and trust
 		// the user (what else could we do?)
 		{"qcow2", "foo.n.0.raw", "foo.n.0.raw"},
+		// templates
+		{"qcow2", "{{.Distro}}-{{.ImageType}}-{{.Arch}}", "centos-9-qcow2-x86_64"},
+		{"qcow2", "{{.Name}}-{{.MajorVersion}}", "centos-9"},
+		{"qcow2", "{{.ImageID}}-{{.ImageVersion}}", "-"},
+		// template with extension stripping
+		{"qcow2", "{{.Distro}}.qcow2", "centos-9"},
+		// template with artifact
+		{"qcow2", "{{.Distro}}-{{.Artifact}}-{{.Arch}}", "centos-9-disk-x86_64"},
 	} {
 		res, err := main.GetOneImage("centos-9", tc.imgTypeName, "x86_64", nil)
 		require.NoError(t, err)
 		assert.Equal(t, tc.expected, main.BasenameFor(res, tc.basename))
+	}
+}
+
+func TestExpandOutputName(t *testing.T) {
+	restore := main.MockNewRepoRegistry(testrepos.New)
+	defer restore()
+
+	res, err := main.GetOneImage("centos-9", "qcow2", "x86_64", nil)
+	require.NoError(t, err)
+
+	data := main.OutputNameDataFor(res)
+	assert.Equal(t, "centos-9", data.Distro)
+	assert.Equal(t, "qcow2", data.ImageType)
+	assert.Equal(t, "x86_64", data.Arch)
+	assert.Equal(t, "centos", data.Name)
+	assert.Equal(t, 9, data.MajorVersion)
+	assert.Equal(t, "disk", data.Artifact)
+
+	for _, tc := range []struct {
+		tmpl     string
+		artifact string
+		expected string
+	}{
+		{"{{.Distro}}-{{.ImageType}}-{{.Arch}}", "", "centos-9-qcow2-x86_64"},
+		{"{{.Distro}}-{{.Artifact}}-{{.Arch}}", "disk", "centos-9-disk-x86_64"},
+		{"{{.Distro}}-{{.Artifact}}-{{.Arch}}", "sysext-nginx", "centos-9-sysext-nginx-x86_64"},
+		{"plain-name", "", "plain-name"},
+		{"{{.BadField}}", "", "{{.BadField}}"},
+	} {
+		data.Artifact = tc.artifact
+		assert.Equal(t, tc.expected, main.ExpandOutputName(tc.tmpl, data), "template: %s, artifact: %s", tc.tmpl, tc.artifact)
 	}
 }
 

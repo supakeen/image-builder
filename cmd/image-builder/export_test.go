@@ -22,11 +22,16 @@ var (
 	DescribeImage         = describeImage
 	ProgressFromCmd       = progressFromCmd
 	BasenameFor           = basenameFor
+	ExpandOutputName      = expandOutputName
+	OutputNameDataFor     = outputNameDataFor
+	DefaultOutputNameTmpl      = defaultOutputNameTmpl
+	DefaultMultiExportNameTmpl = defaultMultiExportNameTmpl
 	CacheDirForUid        = cacheDirForUid
 	NewPkgSearchFormatter = newPkgSearchFormatter
 )
 
 type DescribeImgYAML describeImgYAML
+type OutputNameData = outputNameData
 
 func MockOsArgs(args []string) (restore func()) {
 	saved := os.Args
