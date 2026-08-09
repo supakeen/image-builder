@@ -1675,3 +1675,80 @@ distros:
 	require.NoError(t, err)
 	assert.Nil(t, d4, "loader2 should not find distro-a")
 }
+
+func TestSysexts(t *testing.T) {
+	fakeYAML := `
+image_types:
+  test_type:
+    extras:
+      sysexts:
+        - name: my-ext
+          package_set:
+            - include: [vim, git]
+              exclude: [nano]
+        - name: other-ext
+          paths: ["/usr"]
+          exclude_paths: ["/usr/share/doc"]
+          package_set:
+            - include: [htop]
+`
+	it := makeTestImageType(t, fakeYAML)
+	sysexts := it.Sysexts(distro.ID{Name: "test-distro", MajorVersion: 1}, "x86_64")
+
+	require.Len(t, sysexts, 2)
+	assert.Equal(t, "my-ext", sysexts[0].Name)
+	assert.Equal(t, rpmmd.PackageSet{
+		Include: []string{"git", "vim"},
+		Exclude: []string{"nano"},
+	}, sysexts[0].Packages)
+	assert.Equal(t, []string{"/usr", "/opt"}, sysexts[0].Paths, "default paths")
+	assert.Nil(t, sysexts[0].ExcludePaths)
+
+	assert.Equal(t, "other-ext", sysexts[1].Name)
+	assert.Equal(t, rpmmd.PackageSet{
+		Include: []string{"htop"},
+	}, sysexts[1].Packages)
+	assert.Equal(t, []string{"/usr"}, sysexts[1].Paths, "custom paths")
+	assert.Equal(t, []string{"/usr/share/doc"}, sysexts[1].ExcludePaths)
+}
+
+func TestSysextsWithConditions(t *testing.T) {
+	fakeYAML := `
+image_types:
+  test_type:
+    extras:
+      sysexts:
+        - name: cond-ext
+          package_set:
+            - include: [base-pkg]
+              conditions:
+                "add on test-distro":
+                  when:
+                    distro_name: "test-distro"
+                  append:
+                    include: [conditional-pkg]
+                "add on other-distro":
+                  when:
+                    distro_name: "other-distro"
+                  append:
+                    include: [other-pkg]
+`
+	it := makeTestImageType(t, fakeYAML)
+
+	sysexts := it.Sysexts(distro.ID{Name: "test-distro", MajorVersion: 1}, "x86_64")
+	require.Len(t, sysexts, 1)
+	assert.Equal(t, "cond-ext", sysexts[0].Name)
+	assert.Equal(t, []string{"base-pkg", "conditional-pkg"}, sysexts[0].Packages.Include)
+}
+
+func TestSysextsEmpty(t *testing.T) {
+	fakeYAML := `
+image_types:
+  test_type:
+    filename: foo
+    image_func: disk
+`
+	it := makeTestImageType(t, fakeYAML)
+	sysexts := it.Sysexts(distro.ID{Name: "test-distro", MajorVersion: 1}, "x86_64")
+	assert.Empty(t, sysexts)
+}
