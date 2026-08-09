@@ -21,10 +21,11 @@ var (
 	FindDistro            = findDistro
 	DescribeImage         = describeImage
 	ProgressFromCmd       = progressFromCmd
-	BasenameFor           = basenameFor
-	ExpandOutputTmpl      = expandOutputTmpl
-	OutputTmplDataFor     = outputTmplDataFor
-	DefaultOutputTmpl     = defaultOutputTmpl
+	BasenameFor              = basenameFor
+	ExpandOutputTmpl         = expandOutputTmpl
+	OutputTmplDataFor        = outputTmplDataFor
+	DefaultOutputTmpl        = defaultOutputTmpl
+	DefaultMultiExportTmpl   = defaultMultiExportTmpl
 	CacheDirForUid        = cacheDirForUid
 	NewPkgSearchFormatter = newPkgSearchFormatter
 )
