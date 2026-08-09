@@ -16,6 +16,16 @@ import (
 	"github.com/osbuild/image-builder/pkg/runner"
 )
 
+type SysextConfig struct {
+	Name                      string
+	Format                    string
+	ExtensionReleaseID        string
+	ExtensionReleaseVersionID string
+	Paths                     []string
+	ExcludePaths              []string
+	PackageSet                rpmmd.PackageSet
+}
+
 type DiskImage struct {
 	Base
 
@@ -24,6 +34,8 @@ type DiskImage struct {
 	DiskCustomizations manifest.DiskCustomizations
 	Environment        environment.Environment
 	Compression        string
+
+	Sysexts []SysextConfig
 
 	// Control the VPC subformat use of force_size
 	VPCForceSize *bool
@@ -58,6 +70,42 @@ func (img *DiskImage) InstantiateManifest(m *manifest.Manifest,
 	osPipeline.OSProduct = img.OSProduct
 	osPipeline.OSVersion = img.OSVersion
 	osPipeline.OSNick = img.OSNick
+
+	// Use the same RPM options that affect file layout as the OS pipeline
+	// so that the tree-delta between OS and sysext does not contain
+	// artifacts of differing install options (e.g. doc files, locales).
+	// Ostree and bootloader options are omitted: sysexts don't install
+	// kernels or run in an ostree checkout (for now).
+	sysextBaseRPMOptions := &osbuild.RPMStageOptions{}
+	if img.OSCustomizations.ExcludeDocs {
+		sysextBaseRPMOptions.Exclude = &osbuild.Exclude{Docs: true}
+	}
+	sysextBaseRPMOptions.GPGKeysFromTree = img.OSCustomizations.GPGKeyFiles
+	if img.OSCustomizations.RPMKeysBinary != "" {
+		sysextBaseRPMOptions.RPMKeys = &osbuild.RPMKeys{
+			BinPath: img.OSCustomizations.RPMKeysBinary,
+		}
+	}
+	sysextBaseRPMOptions.InstallLangs = img.OSCustomizations.InstallLangs
+
+	for _, sysext := range img.Sysexts {
+		sp := manifest.NewSysextPipelines(buildPipeline, img.platform, repos, osPipeline, sysext.Name)
+		sp.Tree.Customizations.PackageSet = sysext.PackageSet
+		sp.Tree.Customizations.BaseRPMOptions = sysextBaseRPMOptions
+		sp.Prep.Customizations.Paths = sysext.Paths
+		sp.Prep.Customizations.ExcludePaths = sysext.ExcludePaths
+		sp.Prep.Customizations.ExtensionRelease.ID = sysext.ExtensionReleaseID
+		sp.Prep.Customizations.ExtensionRelease.VersionID = sysext.ExtensionReleaseVersionID
+
+		switch sysext.Format {
+		case "erofs":
+			erofsPipeline := manifest.NewErofs(buildPipeline, sp.Prep, "sysext-"+sysext.Name+"-erofs")
+			erofsPipeline.SetFilename("sysext-" + sysext.Name + ".raw")
+			erofsPipeline.Export()
+		default:
+			return nil, fmt.Errorf("unsupported sysext format %q for %q", sysext.Format, sysext.Name)
+		}
+	}
 
 	rawImagePipeline := manifest.NewRawImage(buildPipeline, osPipeline, img.DiskCustomizations)
 
