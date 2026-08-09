@@ -18,6 +18,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/osbuild/image-builder/pkg/arch"
+	"github.com/osbuild/image-builder/pkg/experimentalflags"
 	"github.com/osbuild/image-builder/pkg/bootc"
 	"github.com/osbuild/image-builder/pkg/cloud"
 	"github.com/osbuild/image-builder/pkg/customizations/subscription"
@@ -378,8 +379,8 @@ func getImage(cmd *cobra.Command, args []string) (*imagefilter.Result, error) {
 			return nil, err
 		}
 	}
-	if len(img.ImgType.Exports()) > 1 {
-		return nil, fmt.Errorf("image %q has multiple exports: this is current unsupport: please report this as a bug", basenameFor(img, ""))
+	if len(img.ImgType.Exports()) > 1 && len(experimentalflags.StringSlice("exports")) == 0 {
+		return nil, fmt.Errorf("image %q has multiple exports: this is currently unsupported: please report this as a bug", basenameFor(img, ""))
 	}
 	return img, err
 }
