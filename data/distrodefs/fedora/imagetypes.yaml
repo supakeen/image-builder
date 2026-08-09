@@ -1995,6 +1995,18 @@ image_types:
               append:
                 exclude:
                   - "firewalld"
+    extras:
+      sysexts:
+        - name: nginx
+          package_set:
+            - include:
+                - "nginx"
+          exclude_paths:
+            # RPM stores metadata here, we don't want to overlay
+            # that on any system.
+            - "/usr/lib/sysimage"
+            # Build information is also probably not necessary?
+            - "/usr/lib/.build-id"
     blueprint:
       supported_options: *supported_options_disk
 
