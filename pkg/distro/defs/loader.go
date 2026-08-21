@@ -569,7 +569,8 @@ type ImageTypeYAML struct {
 }
 
 type extrasYAML struct {
-	Sysexts []sysextDef `yaml:"sysexts,omitempty"`
+	Sysexts    []sysextDef    `yaml:"sysexts,omitempty"`
+	SplitParts []splitPartDef `yaml:"split_parts,omitempty"`
 }
 
 type sysextDef struct {
@@ -578,6 +579,11 @@ type sysextDef struct {
 	Paths        []string     `yaml:"paths,omitempty"`
 	ExcludePaths []string     `yaml:"exclude_paths,omitempty"`
 	PackageSet   []packageSet `yaml:"package_set"`
+}
+
+type splitPartDef struct {
+	Mountpoint string `yaml:"mountpoint"`
+	Filename   string `yaml:"filename,omitempty"`
 }
 
 func (it *ImageTypeYAML) IsOSTreeBasedImageType() bool {
@@ -862,6 +868,23 @@ func (imgType *ImageTypeYAML) Sysexts(id distro.ID, archName string) []SysextDef
 			Paths:        paths,
 			ExcludePaths: sysext.ExcludePaths,
 			Packages:     pkgSet,
+		})
+	}
+	return res
+}
+
+type SplitPartDef struct {
+	Mountpoint string
+	Filename   string
+}
+
+// SplitParts returns the resolved split-part definitions for this image type.
+func (imgType *ImageTypeYAML) SplitParts() []SplitPartDef {
+	var res []SplitPartDef
+	for _, sp := range imgType.Extras.SplitParts {
+		res = append(res, SplitPartDef{
+			Mountpoint: sp.Mountpoint,
+			Filename:   sp.Filename,
 		})
 	}
 	return res

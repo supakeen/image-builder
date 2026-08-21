@@ -1752,3 +1752,35 @@ image_types:
 	sysexts := it.Sysexts(distro.ID{Name: "test-distro", MajorVersion: 1}, "x86_64")
 	assert.Empty(t, sysexts)
 }
+
+func TestSplitParts(t *testing.T) {
+	fakeYAML := `
+image_types:
+  test_type:
+    extras:
+      split_parts:
+        - mountpoint: /boot
+          filename: boot.img
+        - mountpoint: /
+`
+	it := makeTestImageType(t, fakeYAML)
+	parts := it.SplitParts()
+
+	require.Len(t, parts, 2)
+	assert.Equal(t, "/boot", parts[0].Mountpoint)
+	assert.Equal(t, "boot.img", parts[0].Filename)
+	assert.Equal(t, "/", parts[1].Mountpoint)
+	assert.Equal(t, "", parts[1].Filename)
+}
+
+func TestSplitPartsEmpty(t *testing.T) {
+	fakeYAML := `
+image_types:
+  test_type:
+    filename: foo
+    image_func: disk
+`
+	it := makeTestImageType(t, fakeYAML)
+	parts := it.SplitParts()
+	assert.Empty(t, parts)
+}

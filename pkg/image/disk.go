@@ -26,6 +26,11 @@ type SysextConfig struct {
 	PackageSet                rpmmd.PackageSet
 }
 
+type SplitPartConfig struct {
+	Mountpoint string
+	Filename   string
+}
+
 type DiskImage struct {
 	Base
 
@@ -35,7 +40,8 @@ type DiskImage struct {
 	Environment        environment.Environment
 	Compression        string
 
-	Sysexts []SysextConfig
+	Sysexts    []SysextConfig
+	SplitParts []SplitPartConfig
 
 	// Control the VPC subformat use of force_size
 	VPCForceSize *bool
@@ -108,6 +114,19 @@ func (img *DiskImage) InstantiateManifest(m *manifest.Manifest,
 	}
 
 	rawImagePipeline := manifest.NewRawImage(buildPipeline, osPipeline, img.DiskCustomizations)
+
+	for _, sp := range img.SplitParts {
+		trimmed := strings.Trim(sp.Mountpoint, "/")
+		if trimmed == "" {
+			trimmed = "root"
+		}
+		name := fmt.Sprintf("split-part-%s", trimmed)
+		splitPipeline := manifest.NewSplitPartImage(buildPipeline, rawImagePipeline, sp.Mountpoint, img.PartitionTable, name)
+		if sp.Filename != "" {
+			splitPipeline.SetFilename(sp.Filename)
+		}
+		splitPipeline.Export()
+	}
 
 	var imagePipeline manifest.FilePipeline
 	switch img.platform.GetImageFormat() {

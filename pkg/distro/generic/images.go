@@ -812,6 +812,13 @@ func diskImage(t *imageType,
 		})
 	}
 
+	for _, sp := range t.ImageTypeYAML.SplitParts() {
+		img.SplitParts = append(img.SplitParts, image.SplitPartConfig{
+			Mountpoint: sp.Mountpoint,
+			Filename:   sp.Filename,
+		})
+	}
+
 	if img.OSCustomizations.NoBLS {
 		img.OSProduct = t.Arch().Distro().Product()
 		img.OSVersion = t.Arch().Distro().OsVersion()
