@@ -89,8 +89,7 @@ type OSCustomizations struct {
 	// (non s390x).  Newer releases (9+) should keep this disabled.
 	KernelOptionsBootloader bool
 
-	GPGKeyFiles      []string
-	Language         string
+	Language string
 	Keyboard         *string
 	X11KeymapLayouts []string
 	Hostname         string
@@ -109,10 +108,7 @@ type OSCustomizations struct {
 
 	SELinuxForceRelabel *bool
 
-	// Do not install documentation
-	ExcludeDocs bool
-
-	Groups       []users.Group
+	Groups []users.Group
 	Users        []users.User
 	LockRootUser bool
 
@@ -198,11 +194,7 @@ type OSCustomizations struct {
 	// only has a stage for dnf4 version locking.
 	VersionlockPackages []string
 
-	// InstallLangs determines which locale files are installed by RPMs
-	InstallLangs []string
-
-	// Use this RPMKeysBinary from the tree instead of the default one
-	RPMKeysBinary string
+	BaseRPMOptions osbuild.RPMStageOptions
 
 	// Environmental bits that can be set during the RPM stage to affect
 	// the installation of certain packages, for example when a distros
@@ -472,7 +464,7 @@ func (p *OS) getBuildPackages(distro Distro) ([]string, error) {
 		packages = append(packages, "shadow-utils")
 	}
 
-	if p.OSCustomizations.RPMKeysBinary != "" {
+	if p.OSCustomizations.BaseRPMOptions.RPMKeys != nil && p.OSCustomizations.BaseRPMOptions.RPMKeys.BinPath != "" {
 		packages = append(packages, "pqrpm")
 	}
 
@@ -558,17 +550,7 @@ func (p *OS) serialize() (osbuild.Pipeline, error) {
 		pipeline.AddStage(osbuild.NewOSTreePasswdStage("org.osbuild.source", p.ostreeParentSpec.Checksum))
 	}
 
-	baseRPMOptions := &osbuild.RPMStageOptions{}
-
-	if p.OSCustomizations.ExcludeDocs {
-		baseRPMOptions.Exclude = &osbuild.Exclude{Docs: true}
-	}
-	baseRPMOptions.GPGKeysFromTree = p.OSCustomizations.GPGKeyFiles
-	if p.OSCustomizations.RPMKeysBinary != "" {
-		baseRPMOptions.RPMKeys = &osbuild.RPMKeys{
-			BinPath: p.OSCustomizations.RPMKeysBinary,
-		}
-	}
+	baseRPMOptions := p.OSCustomizations.BaseRPMOptions.Clone()
 	if p.OSTreeRef != "" {
 		baseRPMOptions.OSTreeBooted = common.ToPtr(true)
 		baseRPMOptions.DBPath = "/usr/share/rpm"
@@ -580,7 +562,6 @@ func (p *OS) serialize() (osbuild.Pipeline, error) {
 		// https://github.com/osbuild/image-builder/issues/624
 		baseRPMOptions.DisableDracut = true
 	}
-	baseRPMOptions.InstallLangs = p.OSCustomizations.InstallLangs
 
 	if len(p.OSCustomizations.ImageID) > 0 {
 		if baseRPMOptions.GenericEnv == nil {

@@ -73,13 +73,13 @@ func osCustomizations(t *imageType, osPackageSet rpmmd.PackageSet, options distr
 	osc.BlueprintModules = bp.GetEnabledModules()
 	osc.Containers = containers
 
-	osc.GPGKeyFiles = imageConfig.GPGKeyFiles
+	osc.BaseRPMOptions.GPGKeysFromTree = imageConfig.GPGKeyFiles
 	if rpm := c.GetRPM(); rpm != nil && rpm.ImportKeys != nil {
-		osc.GPGKeyFiles = append(osc.GPGKeyFiles, rpm.ImportKeys.Files...)
+		osc.BaseRPMOptions.GPGKeysFromTree = append(osc.BaseRPMOptions.GPGKeysFromTree, rpm.ImportKeys.Files...)
 	}
 
-	if imageConfig.ExcludeDocs != nil {
-		osc.ExcludeDocs = *imageConfig.ExcludeDocs
+	if imageConfig.ExcludeDocs != nil && *imageConfig.ExcludeDocs {
+		osc.BaseRPMOptions.Exclude = &osbuild.Exclude{Docs: true}
 	}
 
 	if imageConfig.Hostonly != nil {
@@ -165,7 +165,7 @@ func osCustomizations(t *imageType, osPackageSet rpmmd.PackageSet, options distr
 		osc.InstallWeakDeps = *imageConfig.InstallWeakDeps
 	}
 
-	osc.InstallLangs = imageConfig.InstallLangs
+	osc.BaseRPMOptions.InstallLangs = imageConfig.InstallLangs
 
 	timezone, ntpServers := c.GetTimezoneSettings()
 	if timezone != nil {
@@ -375,7 +375,7 @@ func osCustomizations(t *imageType, osPackageSet rpmmd.PackageSet, options distr
 	osc.VersionlockPackages = imageConfig.VersionlockPackages
 
 	if tweaks := t.arch.distro.GetTweaks(); tweaks != nil && tweaks.RPMKeys != nil && tweaks.RPMKeys.BinPath != "" {
-		osc.RPMKeysBinary = tweaks.RPMKeys.BinPath
+		osc.BaseRPMOptions.RPMKeys = &osbuild.RPMKeys{BinPath: tweaks.RPMKeys.BinPath}
 	}
 
 	distroID := t.arch.distro.ID()
@@ -1290,7 +1290,7 @@ func ostreeSimplifiedInstallerImage(t *imageType,
 	rawImg.PartitionTable = pt
 
 	if tweaks := t.arch.distro.GetTweaks(); tweaks != nil && tweaks.RPMKeys != nil && tweaks.RPMKeys.BinPath != "" {
-		rawImg.OSCustomizations.RPMKeysBinary = tweaks.RPMKeys.BinPath
+		rawImg.OSCustomizations.BaseRPMOptions.RPMKeys = &osbuild.RPMKeys{BinPath: tweaks.RPMKeys.BinPath}
 	}
 
 	// XXX: can we take platform/filename in NewOSTreeSimplifiedInstaller from rawImg instead?
@@ -1327,7 +1327,7 @@ func ostreeSimplifiedInstallerImage(t *imageType,
 	img.OSName = t.OSTree.Name
 
 	if tweaks := t.arch.distro.GetTweaks(); tweaks != nil && tweaks.RPMKeys != nil && tweaks.RPMKeys.BinPath != "" {
-		img.OSCustomizations.RPMKeysBinary = tweaks.RPMKeys.BinPath
+		img.OSCustomizations.BaseRPMOptions.RPMKeys = &osbuild.RPMKeys{BinPath: tweaks.RPMKeys.BinPath}
 	}
 
 	return img, nil
