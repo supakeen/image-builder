@@ -28,7 +28,7 @@ func TestPipelineRolePayload(t *testing.T) {
 
 	bp := manifest.NewBuild(&mf, &runner.Linux{}, nil, nil)
 
-	manifest.NewXZ(bp, nil)
+	manifest.NewXZ(bp, nil, "")
 	assert.Equal(t, []string{"xz"}, mf.PayloadPipelines())
 	assert.Equal(t, []string{"build"}, mf.BuildPipelines())
 }
