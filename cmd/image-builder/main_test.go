@@ -1068,6 +1068,117 @@ func TestBuildIntegrationOutputFilename(t *testing.T) {
 	}
 }
 
+func TestBuildIntegrationOutputNameTemplating(t *testing.T) {
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
+
+	restore = main.MockManifestgenContainerResolver(fakeContainerResolver)
+	defer restore()
+
+	restore = main.MockNewRepoRegistry(testrepos.New)
+	defer restore()
+
+	var fakeStdout bytes.Buffer
+	restore = main.MockOsStdout(&fakeStdout)
+	defer restore()
+
+	tmpdir := t.TempDir()
+	outputDir := filepath.Join(tmpdir, "output")
+	restore = main.MockOsArgs([]string{
+		"build",
+		"qcow2",
+		"--distro", "centos-9",
+		"--cache", tmpdir,
+		"--output-dir", outputDir,
+		"--output-name={{.Distro}}-{{.Stem}}-{{.Arch}}",
+		"--with-manifest",
+		"--with-buildlog",
+	})
+	defer restore()
+
+	currentArch := arch.Current().String()
+	script := makeFakeOsbuildScript()
+	testutil.MockCommand(t, "osbuild", script)
+
+	err := main.Run()
+	require.NoError(t, err)
+
+	prefix := fmt.Sprintf("centos-9-disk-%s", currentArch)
+	expectedFiles := []string{
+		prefix + ".osbuild-manifest.json",
+		prefix + ".buildlog",
+		prefix + ".qcow2",
+	}
+	files, err := filepath.Glob(outputDir + "/*")
+	assert.NoError(t, err)
+	assert.Equal(t, len(expectedFiles), len(files), files)
+	for _, expected := range expectedFiles {
+		_, err = os.Stat(filepath.Join(outputDir, expected))
+		assert.NoError(t, err, fmt.Sprintf("file %q missing from %v", expected, files))
+	}
+}
+
+func TestBuildIntegrationOutputDirTemplating(t *testing.T) {
+	restore := main.MockManifestgenDepsolver(fakeDepsolve)
+	defer restore()
+
+	restore = main.MockManifestgenContainerResolver(fakeContainerResolver)
+	defer restore()
+
+	restore = main.MockNewRepoRegistry(testrepos.New)
+	defer restore()
+
+	var fakeStdout bytes.Buffer
+	restore = main.MockOsStdout(&fakeStdout)
+	defer restore()
+
+	currentArch := arch.Current().String()
+	tmpdir := t.TempDir()
+
+	for i, tc := range []struct {
+		outputDir   string
+		expectedDir string
+	}{
+		{
+			"{{.Distro}}/{{.ImageType}}",
+			"centos-9/qcow2",
+		},
+		{
+			"{{.Distro}}-{{.Arch}}",
+			"centos-9-" + currentArch,
+		},
+		{
+			"plain-dir",
+			"plain-dir",
+		},
+	} {
+		t.Run(fmt.Sprintf("case-%d", i), func(t *testing.T) {
+			base := filepath.Join(tmpdir, fmt.Sprintf("case-%d", i))
+			outputDirTmpl := filepath.Join(base, tc.outputDir)
+			expectedDir := filepath.Join(base, tc.expectedDir)
+
+			restore := main.MockOsArgs([]string{
+				"build",
+				"qcow2",
+				"--distro", "centos-9",
+				"--cache", tmpdir,
+				"--output-dir", outputDirTmpl,
+			})
+			defer restore()
+
+			script := makeFakeOsbuildScript()
+			testutil.MockCommand(t, "osbuild", script)
+
+			err := main.Run()
+			require.NoError(t, err)
+
+			prefix := fmt.Sprintf("centos-9-qcow2-%s", currentArch)
+			_, err = os.Stat(filepath.Join(expectedDir, prefix+".qcow2"))
+			assert.NoError(t, err, "expected output file in expanded directory for template %q", tc.outputDir)
+		})
+	}
+}
+
 func TestBasenameFor(t *testing.T) {
 	restore := main.MockNewRepoRegistry(testrepos.New)
 	defer restore()
@@ -1089,11 +1200,55 @@ func TestBasenameFor(t *testing.T) {
 		// with the "wrong" extension, we just ignore that and trust
 		// the user (what else could we do?)
 		{"qcow2", "foo.n.0.raw", "foo.n.0.raw"},
+		// templates
+		{"qcow2", "{{.Distro}}-{{.ImageType}}-{{.Arch}}", "centos-9-qcow2-x86_64"},
+		{"qcow2", "{{.Name}}-{{.MajorVersion}}", "centos-9"},
+		// template with extension stripping
+		{"qcow2", "{{.Distro}}.qcow2", "centos-9"},
+		// template with artifact
+		{"qcow2", "{{.Distro}}-{{.Stem}}-{{.Arch}}", "centos-9-disk-x86_64"},
 	} {
 		res, err := main.GetOneImage("centos-9", tc.imgTypeName, "x86_64", nil)
 		require.NoError(t, err)
-		assert.Equal(t, tc.expected, main.BasenameFor(res, tc.basename))
+		got, err := main.BasenameFor(res, tc.basename)
+		require.NoError(t, err)
+		assert.Equal(t, tc.expected, got)
 	}
+}
+
+func TestExpandOutputTmpl(t *testing.T) {
+	restore := main.MockNewRepoRegistry(testrepos.New)
+	defer restore()
+
+	res, err := main.GetOneImage("centos-9", "qcow2", "x86_64", nil)
+	require.NoError(t, err)
+
+	data := main.OutputTmplDataFor(res)
+	assert.Equal(t, "centos-9", data.Distro)
+	assert.Equal(t, "qcow2", data.ImageType)
+	assert.Equal(t, "x86_64", data.Arch)
+	assert.Equal(t, "centos", data.Name)
+	assert.Equal(t, 9, data.MajorVersion)
+	assert.Equal(t, "disk", data.Stem)
+
+	for _, tc := range []struct {
+		tmpl     string
+		artifact string
+		expected string
+	}{
+		{"{{.Distro}}-{{.ImageType}}-{{.Arch}}", "", "centos-9-qcow2-x86_64"},
+		{"{{.Distro}}-{{.Stem}}-{{.Arch}}", "disk", "centos-9-disk-x86_64"},
+		{"{{.Distro}}-{{.Stem}}-{{.Arch}}", "sysext-nginx", "centos-9-sysext-nginx-x86_64"},
+		{"plain-name", "", "plain-name"},
+	} {
+		data.Stem = tc.artifact
+		got, err := main.ExpandOutputTmpl(tc.tmpl, data)
+		require.NoError(t, err, "template: %s", tc.tmpl)
+		assert.Equal(t, tc.expected, got, "template: %s, artifact: %s", tc.tmpl, tc.artifact)
+	}
+
+	_, err = main.ExpandOutputTmpl("{{.BadField}}", data)
+	assert.Error(t, err)
 }
 
 // XXX: move into as manifestgen.FakeDepsolve
