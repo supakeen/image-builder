@@ -2077,3 +2077,29 @@ func TestPartitionDefExportPipelineNames(t *testing.T) {
 	compressed := defs.PartitionDef{Name: "boot", Mountpoint: "/boot", Compression: "xz"}
 	assert.Equal(t, []string{"partition-boot-xz"}, compressed.ExportPipelineNames())
 }
+
+func TestExportsWithExtras(t *testing.T) {
+	it := defs.ImageType{}
+	it.SetExtrasForTest(
+		[]defs.SysextDef{
+			{Name: "nginx", Format: "erofs"},
+			{Name: "podman", Format: "erofs"},
+		},
+		[]defs.PartitionDef{
+			{Name: "boot", Mountpoint: "/boot", Compression: "xz"},
+		},
+	)
+
+	exports, err := it.ExportsWithExtras([]string{"sysext:nginx", "partition:boot"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"sysext-nginx-erofs", "partition-boot-xz"}, exports)
+
+	_, err = it.ExportsWithExtras([]string{"sysext:nonexistent"})
+	assert.EqualError(t, err, `unknown extra "sysext:nonexistent"`)
+
+	_, err = it.ExportsWithExtras([]string{"nginx"})
+	assert.EqualError(t, err, `invalid extra reference "nginx", expected type:name (e.g. sysext:nginx)`)
+
+	_, err = it.ExportsWithExtras([]string{"bogus:nginx"})
+	assert.EqualError(t, err, `unknown extra type "bogus" in "bogus:nginx"`)
+}

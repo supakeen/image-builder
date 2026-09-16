@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"slices"
+	"strings"
 	"text/template"
 
 	"github.com/osbuild/blueprint/pkg/blueprint"
@@ -259,6 +260,52 @@ func (t *imageType) PayloadPackageSets() []string {
 
 func (t *imageType) Exports() []string {
 	return t.exports
+}
+
+func (t *imageType) Extras() []string {
+	var names []string
+	for _, s := range t.sysexts {
+		names = append(names, "sysext:"+s.Name)
+	}
+	for _, sp := range t.partitions {
+		names = append(names, "partition:"+sp.Name)
+	}
+	return names
+}
+
+func (t *imageType) ExportsWithExtras(refs []string) ([]string, error) {
+	exports := slices.Clone(t.exports)
+	for _, ref := range refs {
+		typ, name, ok := strings.Cut(ref, ":")
+		if !ok {
+			return nil, fmt.Errorf("invalid extra reference %q, expected type:name (e.g. sysext:nginx)", ref)
+		}
+		var found bool
+		switch typ {
+		case "sysext":
+			for _, s := range t.sysexts {
+				if s.Name == name {
+					exports = append(exports, s.ExportPipelineNames()...)
+					found = true
+					break
+				}
+			}
+		case "partition":
+			for _, sp := range t.partitions {
+				if sp.Name == name {
+					exports = append(exports, sp.ExportPipelineNames()...)
+					found = true
+					break
+				}
+			}
+		default:
+			return nil, fmt.Errorf("unknown extra type %q in %q", typ, ref)
+		}
+		if !found {
+			return nil, fmt.Errorf("unknown extra %q", ref)
+		}
+	}
+	return exports, nil
 }
 
 func (t *imageType) BootMode() platform.BootMode {
