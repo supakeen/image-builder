@@ -442,7 +442,8 @@ func getImage(cmd *cobra.Command, args []string) (*imagefilter.Result, error) {
 			return nil, err
 		}
 	}
-	if len(img.ImgType.Exports()) > 1 && len(experimentalflags.StringSlice("exports")) == 0 {
+	withExtras, _ := cmd.Flags().GetStringArray("with-extra")
+	if len(img.ImgType.Exports()) > 1 && len(experimentalflags.StringSlice("exports")) == 0 && len(withExtras) == 0 {
 		name, _ := basenameFor(img, "")
 		return nil, fmt.Errorf("image %q has multiple exports: this is currently unsupported: please report this as a bug", name)
 	}
@@ -715,6 +716,10 @@ func cmdBuild(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	withExtras, err := cmd.Flags().GetStringArray("with-extra")
+	if err != nil {
+		return err
+	}
 	withManifest, err := cmd.Flags().GetBool("with-manifest")
 	if err != nil {
 		return err
@@ -823,6 +828,7 @@ func cmdBuild(cmd *cobra.Command, args []string) error {
 		WriteBuildlog:  withBuildlog,
 		Metrics:        withMetrics,
 		JSONOutput:     format == "json",
+		WithExtras:     withExtras,
 	}
 	if runInVm {
 		buildOpts.InVm = []string{"image"}

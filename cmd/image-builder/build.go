@@ -18,6 +18,7 @@ type buildOptions struct {
 	OutputBasename string
 	InVm           []string
 	JSONOutput     bool
+	WithExtras     []string
 
 	WriteManifest bool
 	WriteBuildlog bool
@@ -65,6 +66,20 @@ func buildImage(pbar progress.ProgressBar, res *imagefilter.Result, osbuildManif
 		osbuildOpts.BuildLog = f
 	}
 	exports := res.ImgType.Exports()
+	if len(opts.WithExtras) > 0 {
+		type extrasExporter interface {
+			ExportsWithExtras([]string) ([]string, error)
+		}
+		ee, ok := res.ImgType.(extrasExporter)
+		if !ok {
+			return "", fmt.Errorf("image type %q does not support extras", res.ImgType.Name())
+		}
+		var err error
+		exports, err = ee.ExportsWithExtras(opts.WithExtras)
+		if err != nil {
+			return "", err
+		}
+	}
 	if expExports := experimentalflags.StringSlice("exports"); len(expExports) > 0 {
 		var err error
 		exports, err = expandExportGlobs(expExports, osbuildManifest)
