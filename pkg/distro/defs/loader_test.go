@@ -2064,3 +2064,16 @@ image_types:
 	parts := it.Partitions()
 	assert.Empty(t, parts)
 }
+
+func TestSysextDefExportPipelineNames(t *testing.T) {
+	def := defs.SysextDef{Name: "nginx", Format: "erofs"}
+	assert.Equal(t, []string{"sysext-nginx-erofs"}, def.ExportPipelineNames())
+}
+
+func TestPartitionDefExportPipelineNames(t *testing.T) {
+	plain := defs.PartitionDef{Name: "rootfs", Mountpoint: "/"}
+	assert.Equal(t, []string{"partition-rootfs"}, plain.ExportPipelineNames())
+
+	compressed := defs.PartitionDef{Name: "boot", Mountpoint: "/boot", Compression: "xz"}
+	assert.Equal(t, []string{"partition-boot-xz"}, compressed.ExportPipelineNames())
+}
