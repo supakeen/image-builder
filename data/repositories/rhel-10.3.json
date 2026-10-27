@@ -71,5 +71,11 @@
         "gce"
       ]
     }
+  ],
+  "riscv64": [
+    {
+      "name": "riscv64",
+      "baseurl": "http://riscv-rhel-koji.khw.eng.bos2.dc.redhat.com/kojifiles/repos-dist/rhel-10.3/latest/riscv64/"
+    }
   ]
 }
