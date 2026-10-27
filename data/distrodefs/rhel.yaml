@@ -82,6 +82,11 @@ distros:
       aarch64: "registry.access.redhat.com/ubi{{.MajorVersion}}/ubi:latest"
       ppc64le: "registry.access.redhat.com/ubi{{.MajorVersion}}/ubi:latest"
       s390x: "registry.access.redhat.com/ubi{{.MajorVersion}}/ubi:latest"
+    bootstrap_packages:
+      riscv64:
+        - python3
+        - rpm
+        - coreutils
     image_config:
       default:
         default_kernel: "kernel"
